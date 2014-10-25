@@ -68,8 +68,9 @@ class Pry
 
     # Find all installed Pry plugins and store them in an internal array.
     def locate_plugins
-      Gem.refresh
-      (Gem::Specification.respond_to?(:each) ? Gem::Specification : Gem.source_index.find_name('')).each do |gem|
+      bundled_gems = bundler_list
+      rubygems_list.each do |gem|
+        next if bundled_gems && !bundled_gems.member?(gem.name)
         next if gem.name !~ PRY_PLUGIN_PREFIX
         plugin_name = gem.name.split('-', 2).last
         @plugins << Plugin.new(plugin_name, gem.name, gem, true) if !gem_located?(gem.name)
@@ -98,6 +99,23 @@ class Pry
     def gem_located?(gem_name)
       @plugins.any? { |plugin| plugin.gem_name == gem_name }
     end
+
+    def rubygems_list
+      Gem.refresh
+      if Gem::Specification.respond_to?(:each)
+        Gem::Specification
+      else
+        Gem.source_index.find_name('')
+      end
+    end
+
+    def bundler_list
+      require 'bundler' unless defined?(Bundler)
+      Bundler.locked_gems.specs.map(&:name) rescue []
+    rescue LoadError
+      nil
+    end
+
   end
 
 end
